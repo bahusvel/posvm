@@ -1,3 +1,6 @@
 extern void posvm_entry(void);
 
-void main() { posvm_entry(); }
+int main() {
+	posvm_entry();
+	return 0;
+}
