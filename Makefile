@@ -3,11 +3,8 @@
 ARCH=amd64
 CFLAGS=-g
 
-all: clean
-
 clean:
-
-run:
+	rm build/*
 
 entry: src/arch/$(ARCH)/entry.asm src/arch/$(ARCH)/c_entry.c
 	nasm -f elf64 src/arch/$(ARCH)/entry.asm -o build/entry.o
@@ -17,14 +14,16 @@ build_main: entry src/main.c
 	gcc $(CFLAGS) -c src/main.c -o build/main.o
 	gcc $(CFLAGS) build/entry.o build/c_entry.o build/main.o -o build/posvm
 
-
 debug_main: build_main
 	gdb build/posvm
 
 run_main: build_main
 	build/posvm
 
-hello_build: test/hello.asm
-	nasm -f elf64 test/hello.asm
-	ld -o test/hello test/hello.o
-	test/hello
+dump_main: build_main
+	objdump -d build/posvm -j .text
+
+hello_test: test/hello.asm
+	nasm -f elf64 test/hello.asm -o build/hello.o
+	ld -o build/hello build/hello.o
+	build/hello

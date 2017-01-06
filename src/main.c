@@ -1,6 +1,4 @@
-extern void posvm_entry(void);
-
 int main() {
-	posvm_entry();
+	asm("call *posvm_entry_ptr");
 	return 0;
 }

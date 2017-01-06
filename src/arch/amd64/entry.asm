@@ -4,8 +4,7 @@ global _posvm_prep
 extern _c_posvm_entry
 
 _posvm_prep:
-	call posvm_entry
-
+	call near [posvm_entry_ptr]
 posvm_entry:
 	pushf
 	push rax
@@ -48,5 +47,12 @@ posvm_exit:
 	add rsp, 8
 	pop rax
 	popf
-_before_true_exit:
 	ret
+
+section .rodata
+	global posvm_entry_ptr
+	global posvm_call_ptr
+	global posvm_call_len
+	posvm_entry_ptr dq posvm_entry
+	posvm_call_ptr dq _posvm_prep
+	posvm_call_len dq posvm_entry - _posvm_prep
