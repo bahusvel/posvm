@@ -27,6 +27,7 @@ typedef struct {
 typedef struct {
 	size_t bitset_len;
 	uint8_t *bitset;
+	uint32_t used_blocks;
 	sb_node_list l1_bucket_lists[L1_SIZE];
 } sb_set;
 

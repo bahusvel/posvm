@@ -15,7 +15,7 @@ sb_set *sb_set_allocate(size_t size) {
 		return NULL;
 	set->bitset_len = size;
 	set->bitset = calloc(1, BITNSLOTS(size));
-	if (set->bitset)
+	if (!set->bitset)
 		return NULL;
 	return set;
 }
@@ -23,7 +23,7 @@ sb_set *sb_set_allocate(size_t size) {
 static inline sb_node find_hash_entry(sb_node_list hashmap[], size_t map_size,
 									  uint16_t key) {
 	sb_node_list *collision_list = &hashmap[key % map_size];
-	for (sb_node node = collision_list->node; !node;
+	for (sb_node node = collision_list->node; node;
 		 node = collision_list->node) {
 		if (*node == key)
 			return node;
@@ -54,23 +54,25 @@ static sb_node make_or_get(sb_node_list hashmap[], size_t map_size,
 						   uint16_t key, size_t alloc_size) {
 	sb_node_list *collision_list = &hashmap[key % map_size];
 	sb_node node = collision_list->node;
-	for (; !node; node = collision_list->node) {
+	for (; node; node = collision_list->node) {
 		if (*node == key)
 			return node;
 		if (!collision_list->next) {
 			sb_node_list *next_node = calloc(1, sizeof(sb_node_list));
 			if (!next_node)
 				return NULL;
-			next_node->node = calloc(1, alloc_size);
-			if (!next_node->node)
-				return NULL;
-			*next_node->node = key;
 			collision_list->next = next_node;
-			return next_node->node;
+			collision_list = next_node;
+			break;
 		}
 		collision_list = collision_list->next;
 	}
-	return node;
+	collision_list->node = calloc(1, alloc_size);
+	if (!collision_list->node)
+		return NULL;
+	*collision_list->node = key;
+
+	return collision_list->node;
 }
 
 // return 0 for failure
@@ -87,6 +89,10 @@ int sb_set_set(sb_set *set, uintptr_t key) {
 							 (uint16_t)(key >> 16), sizeof(sb_leaf));
 	if (!l4)
 		return 0;
-	return BITSET(((sb_leaf *)l4)->bitset, key & 0xffff);
-	return 0;
+	uint8_t **bitset = &((sb_leaf *)l4)->bitset;
+	if (!*bitset) {
+		*bitset = set->bitset + (LEAF_SIZE * set->used_blocks++);
+	}
+	BITSET(*bitset, key & 0xffff);
+	return 1;
 }
