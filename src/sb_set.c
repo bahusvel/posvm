@@ -20,9 +20,8 @@ sb_set *sb_set_allocate(size_t size) {
 	return set;
 }
 
-static inline sb_node find_hash_entry(sb_node_list hashmap[], size_t map_size,
-									  uint16_t key) {
-	sb_node_list *collision_list = &hashmap[key % map_size];
+static inline sb_node find_hash_entry(sb_node_list hashmap[], uint16_t key) {
+	sb_node_list *collision_list = &hashmap[key % LN_SIZE];
 	for (sb_node node = collision_list->node; node;
 		 node = collision_list->node) {
 		if (*node == key)
@@ -35,24 +34,20 @@ static inline sb_node find_hash_entry(sb_node_list hashmap[], size_t map_size,
 }
 
 int sb_set_test(sb_set *set, uintptr_t key) {
-	sb_node l2 =
-		find_hash_entry(set->l1_bucket_lists, L1_SIZE, (uint16_t)(key >> 48));
-	if (!l2)
-		return 0;
-	sb_node l3 = find_hash_entry(((sb_inode *)l2)->bucket_lists, LN_SIZE,
-								 (uint16_t)(key >> 32));
-	if (!l3)
-		return 0;
-	sb_node l4 = find_hash_entry(((sb_inode *)l3)->bucket_lists, LN_SIZE,
-								 (uint16_t)(key >> 16));
-	if (!l4)
-		return 0;
-	return BITTEST(((sb_leaf *)l4)->bitset, key & 0xffff);
+	sb_node node;
+	sb_node_list *hashmap = set->l1_bucket_lists;
+	for (int i = 48; i >= 16;
+		 i -= 16, hashmap = ((sb_inode *)node)->bucket_lists) {
+		node = find_hash_entry(hashmap, (uint16_t)(key >> i));
+		if (!node)
+			return 0;
+	}
+	return BITTEST(((sb_leaf *)node)->bitset, key & 0xffff);
 }
 
-static sb_node make_or_get(sb_node_list hashmap[], size_t map_size,
-						   uint16_t key, size_t alloc_size) {
-	sb_node_list *collision_list = &hashmap[key % map_size];
+static inline sb_node make_or_get(sb_node_list hashmap[], uint16_t key,
+								  size_t alloc_size) {
+	sb_node_list *collision_list = &hashmap[key % LN_SIZE];
 	sb_node node = collision_list->node;
 	for (; node; node = collision_list->node) {
 		if (*node == key)
@@ -77,19 +72,16 @@ static sb_node make_or_get(sb_node_list hashmap[], size_t map_size,
 
 // return 0 for failure
 int sb_set_set(sb_set *set, uintptr_t key) {
-	sb_node l2 = make_or_get(set->l1_bucket_lists, L1_SIZE,
-							 (uint16_t)(key >> 48), sizeof(sb_inode));
-	if (!l2)
-		return 0;
-	sb_node l3 = make_or_get(((sb_inode *)l2)->bucket_lists, LN_SIZE,
-							 (uint16_t)(key >> 32), sizeof(sb_inode));
-	if (!l3)
-		return 0;
-	sb_node l4 = make_or_get(((sb_inode *)l3)->bucket_lists, LN_SIZE,
-							 (uint16_t)(key >> 16), sizeof(sb_leaf));
-	if (!l4)
-		return 0;
-	uint8_t **bitset = &((sb_leaf *)l4)->bitset;
+	sb_node node;
+	sb_node_list *hashmap = set->l1_bucket_lists;
+	for (int i = 48; i >= 16;
+		 i -= 16, hashmap = ((sb_inode *)node)->bucket_lists) {
+		node = make_or_get(hashmap, (uint16_t)(key >> i),
+						   i != 16 ? sizeof(sb_inode) : sizeof(sb_leaf));
+		if (!node)
+			return 0;
+	}
+	uint8_t **bitset = &((sb_leaf *)node)->bitset;
 	if (!*bitset) {
 		*bitset = set->bitset + (LEAF_SIZE * set->used_blocks++);
 	}

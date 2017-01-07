@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define L1_SIZE 8
 #define LN_SIZE 256
 #define LEAF_SIZE (1 << 16) / 8
 
@@ -28,7 +27,7 @@ typedef struct {
 	size_t bitset_len;
 	uint8_t *bitset;
 	uint32_t used_blocks;
-	sb_node_list l1_bucket_lists[L1_SIZE];
+	sb_node_list l1_bucket_lists[LN_SIZE];
 } sb_set;
 
 sb_set *sb_set_allocate(size_t size);
